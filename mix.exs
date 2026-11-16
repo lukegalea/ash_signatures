@@ -1,0 +1,103 @@
+# SPDX-FileCopyrightText: 2026 Luke Galea
+# SPDX-License-Identifier: MIT
+
+defmodule AshSignatures.MixProject do
+  use Mix.Project
+
+  @version "0.1.0"
+  @source_url "https://github.com/lukegalea/ash_signatures"
+
+  @description """
+  Signature requests for Ash Framework hosts: Spark fragments for a request over hashed
+  document versions, its signers, their events and one completion record, with providers
+  behind one asynchronous behaviour. The host supplies the base resource, data layer,
+  relationships, tenancy, policies and every decision.
+  """
+
+  def project do
+    [
+      app: :ash_signatures,
+      version: @version,
+      elixir: "~> 1.20",
+      start_permanent: Mix.env() == :prod,
+      elixirc_paths: elixirc_paths(Mix.env()),
+      aliases: aliases(),
+      deps: deps(),
+      docs: &docs/0,
+      description: @description,
+      package: package(),
+      source_url: @source_url,
+      homepage_url: @source_url,
+      dialyzer: [
+        plt_add_apps: [:mix, :ex_unit],
+        plt_file: {:no_warn, "priv/plts/dialyzer.plt"},
+        list_unused_filters: true
+      ]
+    ]
+  end
+
+  # test/support holds the test host: plain Ash.Resource modules on Postgres that
+  # stand in for an application consuming this package.
+  defp elixirc_paths(:test), do: ["lib", "test/support"]
+  defp elixirc_paths(_), do: ["lib"]
+
+  # The package owns no supervision tree.
+  def application do
+    [extra_applications: [:logger, :crypto]]
+  end
+
+  defp package do
+    [
+      name: :ash_signatures,
+      licenses: ["MIT"],
+      maintainers: ["Luke Galea <luke@ideaforge.org>"],
+      files: ~w(lib documentation usage-rules.md CHANGELOG.md LICENSE
+        LICENSE.license LICENSES README.md mix.exs .formatter.exs),
+      links: %{"GitHub" => @source_url}
+    ]
+  end
+
+  # The dependency list is the package boundary. Nothing from Phoenix, and no
+  # application-specific package, may appear here or transitively:
+  # scripts/check-boundary.sh fails CI if one does.
+  defp deps do
+    [
+      {:ash, "~> 3.37"},
+      {:spark, "~> 2.7"},
+      {:ash_state_machine, "~> 0.2"},
+      # RFC 8785 canonical JSON, for the documents digest and the completion record,
+      # whose hashes must not depend on key order.
+      {:jcs, "~> 0.2"},
+      # The test host's data layer. A consuming application brings its own.
+      {:ash_postgres, "~> 2.15", only: [:dev, :test]},
+      # Spark.Formatter, the formatter plugin, needs it.
+      {:sourceror, "~> 1.7", only: [:dev, :test]},
+      {:ex_doc, "~> 0.34", only: :dev, runtime: false},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
+      {:mix_audit, ">= 0.0.0", only: [:dev, :test], runtime: false}
+    ]
+  end
+
+  defp docs do
+    [
+      main: "readme",
+      source_ref: "main",
+      extras: [
+        {"README.md", title: "Home"},
+        "documentation/topics/what-the-host-supplies.md",
+        "documentation/topics/the-boundary.md",
+        "CHANGELOG.md"
+      ],
+      groups_for_extras: [
+        Topics: ~r'documentation/topics'
+      ]
+    ]
+  end
+
+  defp aliases do
+    # The test host's migrations are generated, never written by hand:
+    # `MIX_ENV=test mix ash.codegen <name>` after changing a test resource.
+    [credo: "credo --strict"]
+  end
+end
