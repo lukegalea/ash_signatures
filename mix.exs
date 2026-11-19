@@ -70,6 +70,8 @@ defmodule AshSignatures.MixProject do
       {:jcs, "~> 0.2"},
       # The test host's data layer. A consuming application brings its own.
       {:ash_postgres, "~> 2.15", only: [:dev, :test]},
+      # A test host that seals the payload fields, as a consuming application does.
+      {:ash_cloak, "~> 0.4", only: :test},
       # Spark.Formatter, the formatter plugin, needs it.
       {:sourceror, "~> 1.7", only: [:dev, :test]},
       {:ex_doc, "~> 0.34", only: :dev, runtime: false},

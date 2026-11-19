@@ -29,7 +29,9 @@ account, PDF stamping, seals, timestamps, hosted providers.
    automation principal reach a signer's `sign` action.
 5. Never add an update or destroy action to the signer event or completion resources. They are append-only.
 6. Seal the fields in `AshSignatures.payload_fields/1` under your erasure scope. Everything else (hashes, roles,
-   order, event types, times, the completion record) is kept.
+   order, event types, times, the completion record) is kept. Cloaking them with `AshCloak` works, and so does a
+   seal change of your own that drops each argument once it is encrypted: the event hash reads them as the event
+   is recorded, before your changes run, so it still covers them.
 7. React to a request reaching `completed` or `returned` with your own actions. The package never changes the
    subject.
 8. Run `expire` from your own trigger when `expires_at` passes. The package refuses signer acts after it, but does not

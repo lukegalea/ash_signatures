@@ -24,3 +24,5 @@ Requires Elixir 1.20 or later.
 - The first signed copy completes a request; copies are deduplicated by SHA-256 on the subject; another open request
   on the subject is superseded.
 - The completion record and its `record_hash`, with no personal data in it.
+- A signer event's hash covers its personal fields when the host seals them (for example with `AshCloak`, which turns
+  them into arguments), and an event recorded without them still records on a sealed host.
