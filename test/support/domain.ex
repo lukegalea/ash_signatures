@@ -47,6 +47,10 @@ defmodule AshSignatures.Test.Domain do
       define :list_events, action: :read
     end
 
+    resource AshSignatures.Test.SealedSignerEvent do
+      define :record_sealed_event, action: :record
+    end
+
     resource AshSignatures.Test.Completion do
       define :list_completions, action: :read
     end
