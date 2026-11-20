@@ -20,7 +20,7 @@ host.
 | Notifications (it is your turn, a reminder, signed by everyone) | a notifier on the host's resources |
 | Expiry and reminder timing | the host's triggers calling `expire` and `remind` |
 | What happens to the subject on `completed` or `returned` | the host's own actions |
-| Erasure | the host seals `AshSignatures.payload_fields/1` under its scope (with `AshCloak`, for example); the event hash still covers them |
+| Erasure | the host seals `AshSignatures.payload_fields/1` under its scope (with `AshCloak`, for example); the event hash still covers them, and the event's `salt`, sealed with them, keeps the hash from confirming a guess at them once they are erased |
 | Retention of document versions | the host's retention rules |
 | Audit | the host's base resource |
 | The audit chain head written into each completion | an `AshSignatures.ChainHead` named in `signature_request` |

@@ -28,6 +28,47 @@ defmodule AshSignatures.SealedEventTest do
     )
   end
 
+  # Once the host shreds the sealed fields, every other field the hash covers is still
+  # stored in plain text. Without a secret in the hash, a guess at the sealed fields
+  # (an IPv4 address is 2^32 candidates) could be confirmed against it.
+  describe "after the sealed fields are gone" do
+    test "the true values cannot be confirmed against the stored hash" do
+      event =
+        record(%{
+          ip_address: "198.51.100.77",
+          user_agent: "Mozilla/5.0 (X11; Linux x86_64)",
+          reason: nil
+        })
+
+      # What a reader still has once the scope is shredded: the plain fields and the
+      # hash. The true personal values, guessed exactly, do not reproduce it.
+      guess = %{
+        request_id: event.request_id,
+        signer_id: event.signer_id,
+        type: event.type,
+        route: event.route,
+        sha256: event.sha256,
+        ip_address: "198.51.100.77",
+        user_agent: "Mozilla/5.0 (X11; Linux x86_64)",
+        reason: nil,
+        occurred_at: event.occurred_at
+      }
+
+      refute AshSignatures.Digest.sha256_hex(guess) == event.event_hash
+      refute Hash.hash(%{event | salt: nil}) == event.event_hash
+    end
+
+    test "the secret is sealed with them, and differs per event" do
+      event = record(@payload)
+      other = record(@payload)
+
+      assert is_binary(event.salt) and byte_size(event.salt) == 64
+      assert Base.decode64!(event.encrypted_salt) =~ "SEALED:"
+      refute event.salt == other.salt
+      refute event.event_hash == other.event_hash
+    end
+  end
+
   test "a sealed host's event hash covers the personal fields it sealed" do
     event = record(@payload)
 
@@ -50,6 +91,7 @@ defmodule AshSignatures.SealedEventTest do
     event = record(%{})
 
     assert event.ip_address == nil
+    assert event.salt == nil
     assert event.event_hash == Hash.hash(event)
   end
 
