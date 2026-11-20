@@ -26,3 +26,6 @@ Requires Elixir 1.20 or later.
 - The completion record and its `record_hash`, with no personal data in it.
 - A signer event's hash covers its personal fields when the host seals them (for example with `AshCloak`, which turns
   them into arguments), and an event recorded without them still records on a sealed host.
+- An event recorded with a personal field gets a random `salt` that its hash covers, listed in
+  `AshSignatures.payload_fields(:signer_event)` so the host seals it with the fields. Once the host erases them, the
+  hash no longer confirms a guess at them (an IPv4 address, a user agent, a short reason).

@@ -21,6 +21,16 @@ defmodule AshSignatures.SignerEvent do
   when it is recorded. The completion record lists every event's hash, so the hash outlives
   the fields once the host seals them. `ip_address`, `user_agent` and `reason` are
   `sensitive?` and listed in `AshSignatures.payload_fields(:signer_event)`.
+
+  ## The salt
+
+  Every other field the hash covers is kept in plain text, so without a secret in it the
+  hash would confirm a guess at the sealed fields once they are gone: an IPv4 address is
+  2^32 candidates, and a user agent or a short reason is not many more. An event recorded
+  with any personal field therefore gets `salt`, 32 random bytes as lowercase hex, and the
+  hash covers it. `salt` is listed in `AshSignatures.payload_fields(:signer_event)`, so the
+  host seals it with the fields and erasing them takes it too. An event with none of them
+  (the package's own `reminded` and `withdrawn`) has nothing to hide and no salt.
   """
 
   use Spark.Dsl.Fragment, of: Ash.Resource
@@ -32,6 +42,11 @@ defmodule AshSignatures.SignerEvent do
 
     create :record do
       accept [:request_id, :signer_id, :type, :route, :sha256, :ip_address, :user_agent, :reason]
+
+      # Where the salt goes on a host that seals it, whose `salt` is then no attribute
+      # (`AshCloak` swaps it for an encrypted one). Private: never taken as input.
+      argument :salt, :string, public?: false, sensitive?: true
+
       change AshSignatures.SignerEvent.Changes.Hash
     end
   end
@@ -53,6 +68,9 @@ defmodule AshSignatures.SignerEvent do
     attribute :ip_address, :string, public?: true, sensitive?: true
     attribute :user_agent, :string, public?: true, sensitive?: true
     attribute :reason, :string, public?: true, sensitive?: true
+
+    # Written by `AshSignatures.SignerEvent.Changes.Hash`, never accepted as input.
+    attribute :salt, :string, public?: true, sensitive?: true
     attribute :event_hash, :string, allow_nil?: false, public?: true
   end
 end

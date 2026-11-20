@@ -31,8 +31,13 @@ defmodule AshSignatures do
   @doc """
   The attributes that hold a signer's personal data, by fragment. A host seals these under
   its erasure scope. Everything else, hashes, roles, order, event types and times, is kept.
+
+  A signer event's `salt` is not personal data, but it is listed with the event's personal
+  fields and must be sealed with them: it is the secret in the event hash
+  (`AshSignatures.SignerEvent`), and once it is gone the hash no longer confirms a guess at
+  the fields it covered.
   """
   @spec payload_fields(:signer | :signer_event) :: [atom()]
   def payload_fields(:signer), do: [:name, :email]
-  def payload_fields(:signer_event), do: [:ip_address, :user_agent, :reason]
+  def payload_fields(:signer_event), do: [:ip_address, :user_agent, :reason, :salt]
 end
