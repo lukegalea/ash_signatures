@@ -33,13 +33,15 @@ host.
 An act a host authorizes has consequences the package writes itself, with the acting actor and tenant and
 `authorize?: false`:
 
-- a signer act records its event, and a signer whose turn it becomes gets a `notified` event;
+- a signer act records its event, and a signer whose turn it becomes gets a `notified` event (none for a provider
+  that tells no one, such as paper);
 - a signature is stamped into each document when the host supplies a stamp, and the stamped version becomes how the
   document stands;
 - a signature moves the request to `partially_signed` (notifying the next signer) or `completed`;
 - a decline or change request moves the request to `returned`;
 - a request that ends withdraws the signers who had not acted, each with an event;
-- a completion makes each document's last stamped version its signed result, writes the completion record and supersedes the subject's other open requests.
+- a completion makes each document's last stamped version its signed result, writes the completion record and supersedes the subject's other open requests;
+- a signed copy that completes a request signs each signer who had not acted on it (`sign_on_copy`).
 
 ## Field names
 

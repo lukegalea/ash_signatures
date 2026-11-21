@@ -5,7 +5,8 @@ defmodule AshSignatures.Request.Changes.Send do
   @moduledoc """
   Sends a draft request: checks its documents and signers, fixes `documents_digest`, gets the
   provider's reference (`lookup` first, `create` only when there is none) and notifies the
-  first signer.
+  first signer, unless the provider tells no one (`notifies_signers?/0` false, as for paper):
+  then every signer stays `pending` until a signed copy arrives.
   """
 
   use Ash.Resource.Change
@@ -32,7 +33,7 @@ defmodule AshSignatures.Request.Changes.Send do
         changeset
         |> AshStateMachine.transition_state(:sent)
         |> Ash.Changeset.before_action(&prepare(&1, key, provider, context))
-        |> Ash.Changeset.after_action(&notify_first(&1, &2, context))
+        |> Ash.Changeset.after_action(&notify_first(&1, &2, provider, context))
     end
   end
 
@@ -85,13 +86,15 @@ defmodule AshSignatures.Request.Changes.Send do
     end
   end
 
-  defp notify_first(changeset, request, context) do
-    opts = Internal.opts(changeset, context)
+  defp notify_first(changeset, request, provider, context) do
+    if Internal.notifies_signers?(provider) do
+      opts = Internal.opts(changeset, context)
 
-    changeset.resource
-    |> Internal.signers(request.id, opts)
-    |> Enum.filter(&(&1.order == 1))
-    |> Enum.each(&(&1 |> Ash.Changeset.for_update(:notify, %{}, opts) |> Ash.update!()))
+      changeset.resource
+      |> Internal.signers(request.id, opts)
+      |> Enum.filter(&(&1.order == 1))
+      |> Enum.each(&(&1 |> Ash.Changeset.for_update(:notify, %{}, opts) |> Ash.update!()))
+    end
 
     {:ok, request}
   end

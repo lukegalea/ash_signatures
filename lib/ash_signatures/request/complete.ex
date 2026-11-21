@@ -7,6 +7,10 @@ defmodule AshSignatures.Request.Complete do
   completion record is written, and every other open request on the same subject is
   superseded.
 
+  When a signed copy completed the request (`signed_copy:` its SHA-256), the signers who had
+  not acted are not withdrawn: the copy carries their signatures, so each is `signed` on it
+  (`sign_on_copy`), with a `signed` event of route `:upload` and the copy's hash.
+
   The record names the request, its documents' source and signed hashes, its signers by
   reference (never their personal data), the hash of every event in order, the time and the
   host's chain head. `AshSignatures.Completion` hashes it.
@@ -18,8 +22,11 @@ defmodule AshSignatures.Request.Complete do
   alias AshSignatures.Request.Info
 
   @doc false
-  def run(resource, request, opts) do
-    Internal.withdraw_open_signers(resource, request.id, opts)
+  def run(resource, request, opts, how \\ []) do
+    case how[:signed_copy] do
+      nil -> Internal.withdraw_open_signers(resource, request.id, opts)
+      sha256 -> Internal.sign_open_signers_on_copy(resource, request.id, sha256, opts)
+    end
 
     resource
     |> Info.completion()

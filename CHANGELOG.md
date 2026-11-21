@@ -43,3 +43,8 @@ Requires Elixir 1.20 or later.
 - The signer whose turn it becomes gets a `notified` event, and `record_delivery` records `delivered` when the host's
   mailer reports the link delivered.
 - A signer act on a request it cannot read (another tenant's) is refused with an error instead of raising.
+- A signed copy that completes a request signs each signer who had not acted on it (`sign_on_copy`: a `signed` event
+  with route `:upload` and the copy's SHA-256) instead of withdrawing them, so the completion record of a request
+  signed on paper names its signers as signed.
+- A provider may say it tells no signer it is their turn (`notifies_signers?/0`, optional). `Providers.Upload` says
+  so, and a paper request records no `notified` event.

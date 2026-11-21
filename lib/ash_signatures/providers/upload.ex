@@ -5,7 +5,8 @@ defmodule AshSignatures.Providers.Upload do
   @moduledoc """
   Signing on paper. A person downloads the document, it is signed outside the platform, and
   the signed copy is uploaded and handed to `receive_signed_copy`. Nothing is sent and
-  nothing can be observed; the upload is the only event.
+  nothing can be observed: no signer is notified, and the upload is the only event. The copy
+  carries the signatures, so when it completes the request each signer is `signed` on it.
   """
 
   @behaviour AshSignatures.Provider
@@ -27,4 +28,7 @@ defmodule AshSignatures.Providers.Upload do
 
   @impl true
   def remind(_ref, _signer, _context), do: :ok
+
+  @impl true
+  def notifies_signers?, do: false
 end

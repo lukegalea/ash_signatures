@@ -23,17 +23,67 @@ defmodule AshSignatures.UploadTest do
     assert {document.result_version_id, document.result_sha256} == {copy.id, copy.sha256}
 
     assert [
-             %{type: :notified, route: nil},
-             %{type: :signed, route: :upload, signer_id: nil, sha256: sha256} | withdrawn
+             %{type: :signed, route: :upload, signer_id: nil, sha256: sha256} | on_copy
            ] = events(request.id)
 
     assert sha256 == copy.sha256
-    assert Enum.all?(withdrawn, &(&1.type == :withdrawn))
+    assert on_copy != []
+
+    assert Enum.all?(
+             on_copy,
+             &match?(%{type: :signed, route: :upload, signer_id: id} when not is_nil(id), &1)
+           )
+
+    assert Enum.all?(on_copy, &(&1.sha256 == copy.sha256))
 
     [completion] =
       Domain.list_completions!(query: [filter: [request_id: request.id]], authorize?: false)
 
     assert [%{"result_sha256" => ^sha256}] = completion.record["documents"]
+    assert Enum.all?(completion.record["signers"], &(&1["status"] == "signed"))
+  end
+
+  test "a paper request notifies no one: its signers wait, with no event, until the copy" do
+    %{request: request, signers: signers} = sent(provider: :upload)
+
+    assert events(request.id) == []
+    assert Enum.all?(signers, &(signer(&1.id).status == :pending))
+  end
+
+  test "a person's act cannot reach a paper signer: none of them was told it is their turn" do
+    %{signers: [first | _]} = sent(provider: :upload)
+
+    assert {:error, _} = Domain.view(signer(first.id), authorize?: false)
+    assert signer(first.id).status == :pending
+  end
+
+  test "a copy that completes an in-platform request signs the signers who had not signed, on it" do
+    %{request: request, signers: [first, second]} = sent(provider: :recording)
+
+    first.id |> signer() |> sign_through()
+
+    copy = version("SYNTHETIC signed on paper by the second signer")
+
+    request =
+      request.id
+      |> Domain.get_request!(authorize?: false)
+      |> Domain.receive_signed_copy!(copy.id, authorize?: false)
+
+    assert request.status == :completed
+    assert signer(first.id).status == :signed
+    assert signer(second.id).status == :signed
+
+    signed = Enum.filter(events(request.id), &(&1.type == :signed))
+
+    assert [%{signer_id: first_id, route: :in_platform}] =
+             Enum.filter(signed, &(&1.route == :in_platform))
+
+    assert first_id == first.id
+
+    assert [%{signer_id: second_id, sha256: sha256}] =
+             Enum.filter(signed, &(&1.route == :upload and &1.signer_id))
+
+    assert {second_id, sha256} == {second.id, copy.sha256}
   end
 
   test "the same bytes again change nothing; different bytes are recorded and complete nothing" do
@@ -80,7 +130,7 @@ defmodule AshSignatures.UploadTest do
     assert {:error, error} = Domain.receive_signed_copy(paper, earlier.id, authorize?: false)
     assert Exception.message(error) =~ "unsigned"
     assert Domain.get_request!(paper.id, authorize?: false).status == :sent
-    assert Enum.map(events(paper.id), & &1.type) == [:notified]
+    assert events(paper.id) == []
   end
 
   test "an unsigned document of another subject is no reason to refuse a copy" do
@@ -145,6 +195,6 @@ defmodule AshSignatures.UploadTest do
     second = Domain.receive_signed_copy!(second, copy.id, authorize?: false)
 
     assert second.status == :sent
-    assert Enum.map(events(second.id), & &1.type) == [:notified]
+    assert events(second.id) == []
   end
 end

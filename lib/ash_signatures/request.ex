@@ -38,7 +38,8 @@ defmodule AshSignatures.Request do
       are added to a draft with the `add` actions of their resources.
     * `send` (update): checks the request has documents and signers numbered from 1, fixes
       `documents_digest`, asks the provider for an existing reference (`lookup`) and creates
-      one only when there is none, and notifies the first signer.
+      one only when there is none, and notifies the first signer (unless the provider tells
+      no one, as paper does: `notifies_signers?/0`).
     * `receive_signed_copy` (update): a signed copy, as a document version, arrived for one
       of the request's documents. See "Signed copies" below.
     * `recall`, `cancel`, `expire` (update): end a request that has not completed. Signers who
@@ -60,7 +61,8 @@ defmodule AshSignatures.Request do
   ## Completion
 
   When the last signer signs, or the last document receives its signed copy, the request is
-  `completed`: signers who have not acted are withdrawn, one `AshSignatures.Completion` row
+  `completed`: signers who have not acted are withdrawn (or, when a signed copy completed it,
+  signed on that copy: `sign_on_copy`), one `AshSignatures.Completion` row
   is written, and every other open request on the same subject is `superseded`. The host
   reacts to `completed` and `returned` with its own actions; the package never changes the
   subject.
