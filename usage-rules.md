@@ -47,9 +47,13 @@ stamp does it), seals, timestamps, hosted providers.
     signer is shown it, and the last one is the signed result in the completion record. Without one, the documents
     stay as they were sent.
 11. Record a signer's link delivery with `record_delivery` when your mailer reports it. The package records
-    `notified` itself when it becomes a signer's turn.
+    `notified` itself when it becomes a signer's turn: that the turn came, not that anything was sent. A provider
+    that tells no one (`notifies_signers?/0` false, as `Providers.Upload`) records no `notified` at all.
 12. What a signer types (`signed_name`, `signed_title`, `authority`) is optional in the package. Require what your
     signing needs with a validation on your own resource.
 13. Consequences of an act (an event, the request moving on, the completion) are written with the acting actor and
     tenant and `authorize?: false`. Your policies decide who may act. `AshSignatures.consequences/1` names those
     actions for each fragment: grant them to nobody, so no one can cause the bookkeeping without the act.
+14. A signed copy that completes a request signs each signer who had not acted on it (`sign_on_copy`, a `signed`
+    event with route `:upload` and the copy's SHA-256), instead of withdrawing them. Grant `sign_on_copy` to nobody,
+    as every other consequence.

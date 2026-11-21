@@ -4,13 +4,15 @@
 defmodule AshSignatures.Request.Verifiers.VerifyHost do
   @moduledoc """
   Checks that every provider named in `signature_request` implements
-  `AshSignatures.Provider`. The sibling resources are checked when they are first used,
+  `AshSignatures.Provider`'s required callbacks. The sibling resources are checked when they are first used,
   because they may compile after the request resource.
   """
 
   use Spark.Dsl.Verifier
 
-  @callbacks AshSignatures.Provider.behaviour_info(:callbacks)
+  # The required callbacks: an optional one (`notifies_signers?/0`) may be left out.
+  @callbacks AshSignatures.Provider.behaviour_info(:callbacks) --
+               AshSignatures.Provider.behaviour_info(:optional_callbacks)
 
   @impl true
   def verify(dsl) do

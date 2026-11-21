@@ -133,7 +133,7 @@ defmodule AshSignatures.Request.Changes.ReceiveSignedCopy do
       |> AshStateMachine.transition_state(:completed)
       |> Ash.Changeset.force_change_attribute(:ended_at, Internal.now())
       |> Ash.Changeset.after_action(fn changeset, request ->
-        Complete.run(changeset.resource, request, opts)
+        Complete.run(changeset.resource, request, opts, signed_copy: sha256)
         {:ok, request}
       end)
     else

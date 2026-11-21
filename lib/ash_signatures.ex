@@ -70,7 +70,7 @@ defmodule AshSignatures do
           [atom()]
   def consequences(:request), do: [:advance, :return, :supersede]
   def consequences(:request_document), do: [:record_result, :record_progress]
-  def consequences(:signer), do: [:notify, :withdraw]
+  def consequences(:signer), do: [:notify, :withdraw, :sign_on_copy]
   def consequences(:signer_event), do: [:record]
   def consequences(:completion), do: [:record]
 end

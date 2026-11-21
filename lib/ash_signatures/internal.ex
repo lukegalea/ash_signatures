@@ -102,6 +102,28 @@ defmodule AshSignatures.Internal do
     :ok
   end
 
+  # A signed copy completed the request: every signer who had not acted signed on it.
+  def sign_open_signers_on_copy(request_resource, request_id, sha256, opts) do
+    for signer <- signers(request_resource, request_id, opts),
+        signer.status in @open_signer do
+      signer
+      |> Ash.Changeset.for_update(:sign_on_copy, %{sha256: sha256}, opts)
+      |> Ash.update!()
+    end
+
+    :ok
+  end
+
+  # Whether the provider tells signers it is their turn (`notifies_signers?/0`, true when the
+  # provider does not say).
+  def notifies_signers?(provider) do
+    Code.ensure_loaded(provider)
+
+    if function_exported?(provider, :notifies_signers?, 0),
+      do: provider.notifies_signers?(),
+      else: true
+  end
+
   # Tells the provider a sent request ended without completing.
   def void(request_resource, request, reason, opts) do
     with ref when is_binary(ref) <- request.provider_ref,

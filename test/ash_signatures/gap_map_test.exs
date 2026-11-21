@@ -82,8 +82,16 @@ defmodule AshSignatures.GapMapTest do
   end
 
   test "the provider behaviour has the six asynchronous callbacks and both shipped providers implement it" do
-    callbacks = AshSignatures.Provider.behaviour_info(:callbacks) |> Keyword.keys() |> Enum.sort()
+    optional = AshSignatures.Provider.behaviour_info(:optional_callbacks) |> Keyword.keys()
+
+    callbacks =
+      AshSignatures.Provider.behaviour_info(:callbacks)
+      |> Keyword.keys()
+      |> Kernel.--(optional)
+      |> Enum.sort()
+
     assert callbacks == [:create, :fetch, :lookup, :observe, :remind, :void]
+    assert optional == [:notifies_signers?]
 
     for provider <- [AshSignatures.Providers.InPlatform, AshSignatures.Providers.Upload] do
       behaviours =

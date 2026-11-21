@@ -22,8 +22,10 @@ defmodule AshSignatures.Signer do
 
   `pending` until it is the signer's turn, then `notified`, `viewed`, and one of `signed`,
   `declined` or `changes_requested`. A signer who had not acted when the request ended is
-  `withdrawn`. Because only the current signer is ever `notified` or `viewed`, the status is
-  also what keeps signers in order.
+  `withdrawn`, unless a signed copy completed it: a copy carries every signature the request
+  asked for, so a signer who had not signed is `signed` on it (`sign_on_copy`). Because only
+  the current signer is ever `notified` or `viewed`, the status is also what keeps signers in
+  order.
 
   ## Actions
 
@@ -46,7 +48,9 @@ defmodule AshSignatures.Signer do
     * `remind`: records `reminded` and calls the provider's `remind`. No state change.
     * `record_delivery`: records `delivered`, when the host's mailer reports the signer's
       link delivered. No state change; only while it is the signer's turn.
-    * `notify`, `withdraw`: the package's own writes. `notify` records `notified`.
+    * `notify`, `withdraw`, `sign_on_copy`: the package's own writes. `notify` records
+      `notified`. `sign_on_copy` records the signer's `signed` event, route `:upload`, with the
+      SHA-256 of the signed copy that completed the request.
 
   The host's policies decide who may take each act. Signing is a person's act: a host must
   not let an automation principal reach `sign`.
@@ -68,6 +72,7 @@ defmodule AshSignatures.Signer do
       transition :decline, from: [:notified, :viewed], to: :declined
       transition :request_changes, from: [:notified, :viewed], to: :changes_requested
       transition :withdraw, from: [:pending, :notified, :viewed], to: :withdrawn
+      transition :sign_on_copy, from: [:pending, :notified, :viewed], to: :signed
     end
   end
 
@@ -137,6 +142,12 @@ defmodule AshSignatures.Signer do
     update :withdraw do
       require_atomic? false
       change {AshSignatures.Signer.Changes.Act, type: :withdrawn}
+    end
+
+    update :sign_on_copy do
+      require_atomic? false
+      argument :sha256, :string, allow_nil?: false, constraints: [min_length: 64, max_length: 64]
+      change {AshSignatures.Signer.Changes.Act, type: :signed_on_copy}
     end
   end
 

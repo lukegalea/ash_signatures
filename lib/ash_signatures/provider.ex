@@ -14,6 +14,10 @@ defmodule AshSignatures.Provider do
   does it call `create`. `void` is called when a sent request ends without completing, and
   `remind` when a signer is reminded.
 
+  `notifies_signers?/0` is optional, and true when a provider leaves it out: whether it tells
+  each signer when it is their turn. One that tells no one (paper) returns false, and `send`
+  records no `notified` event for it.
+
   `observe` and `fetch` have no caller in this package yet. They are the calls a hosted
   provider's reconciliation makes after a webhook nudge.
   """
@@ -34,4 +38,7 @@ defmodule AshSignatures.Provider do
               {:ok, [%{document_id: term(), version_id: term()}]} | {:error, term()}
   @callback void(ref(), reason :: atom(), context()) :: :ok | {:error, term()}
   @callback remind(ref(), signer :: Ash.Resource.record(), context()) :: :ok | {:error, term()}
+  @callback notifies_signers?() :: boolean()
+
+  @optional_callbacks notifies_signers?: 0
 end

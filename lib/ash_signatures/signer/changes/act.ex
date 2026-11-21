@@ -7,6 +7,10 @@ defmodule AshSignatures.Signer.Changes.Act do
   records the event and, for `signed`, `declined` and `changes_requested`, moves the request
   on. A signature is stamped into the documents first when the host supplies an
   `AshSignatures.Stamp`. Fenced on the signer's status not having changed since it was read.
+
+  `signed_on_copy` is the package's own act when a signed copy completes the request: the
+  signer is `signed`, and their `signed` event has the route `:upload` and the copy's
+  SHA-256. Nothing is stamped and the request is not moved on: the copy already completed it.
   """
 
   use Ash.Resource.Change
@@ -25,7 +29,8 @@ defmodule AshSignatures.Signer.Changes.Act do
     :declined,
     :changes_requested,
     :reminded,
-    :withdrawn
+    :withdrawn,
+    :signed_on_copy
   ]
 
   @impl true
@@ -64,6 +69,9 @@ defmodule AshSignatures.Signer.Changes.Act do
     do: invalid(changeset, "the signer has not consented to sign electronically")
 
   defp transition(changeset, :signed, _signer),
+    do: changeset |> AshStateMachine.transition_state(:signed) |> stamp(:signed_at)
+
+  defp transition(changeset, :signed_on_copy, _signer),
     do: changeset |> AshStateMachine.transition_state(:signed) |> stamp(:signed_at)
 
   defp transition(changeset, :reminded, %{status: status}) when status in [:notified, :viewed],
@@ -126,6 +134,10 @@ defmodule AshSignatures.Signer.Changes.Act do
 
     Internal.record_event(request_resource, event(changeset, signer, type), opts)
 
+    follow_event(request_resource, changeset, signer, type, opts)
+  end
+
+  defp follow_event(request_resource, changeset, signer, type, opts) do
     case type do
       :signed ->
         with :ok <- stamp(request_resource, changeset, signer, opts) do
@@ -141,6 +153,16 @@ defmodule AshSignatures.Signer.Changes.Act do
       _ ->
         {:ok, signer}
     end
+  end
+
+  defp event(changeset, signer, :signed_on_copy) do
+    %{
+      request_id: signer.request_id,
+      signer_id: signer.id,
+      type: :signed,
+      route: :upload,
+      sha256: argument(changeset, :sha256)
+    }
   end
 
   defp event(changeset, signer, type) do
