@@ -14,13 +14,20 @@ defmodule AshSignatures.RequestDocument do
 
   `source_sha256` is copied from the version when the document is added, so the request's
   digest and completion record never depend on reading the version again. `result_version_id`
-  and `result_sha256` are set by `AshSignatures.Request`'s `receive_signed_copy`.
+  and `result_sha256` are the signed result: set by `AshSignatures.Request`'s
+  `receive_signed_copy`, or, on a host that stamps in-platform signatures
+  (`AshSignatures.Stamp`), from the last stamped version when the request completes.
+
+  `current_version_id` and `current_sha256` are the document as it stands while it is being
+  signed in the platform: the last stamped version, `nil` until a signature is stamped. A
+  signer is shown the document as it stands.
 
   ## Actions
 
     * `add` (create): `request_id`, `source_version_id` and `position`, on a draft request
       only (`AshSignatures.Validations.RequestIsDraft`).
-    * `record_result` (update): the package's own write of a signed copy.
+    * `record_result` (update): the package's own write of a signed result.
+    * `record_progress` (update): the package's own write of a stamped version.
   """
 
   use Spark.Dsl.Fragment, of: Ash.Resource, extensions: [AshSignatures.Member.Dsl]
@@ -36,6 +43,10 @@ defmodule AshSignatures.RequestDocument do
 
     update :record_result do
       accept [:result_version_id, :result_sha256]
+    end
+
+    update :record_progress do
+      accept [:current_version_id, :current_sha256]
     end
   end
 
@@ -53,6 +64,8 @@ defmodule AshSignatures.RequestDocument do
     attribute :source_sha256, :string, allow_nil?: false, public?: true
     attribute :result_version_id, :uuid, public?: true
     attribute :result_sha256, :string, public?: true
+    attribute :current_version_id, :uuid, public?: true
+    attribute :current_sha256, :string, public?: true
 
     create_timestamp :inserted_at
     update_timestamp :updated_at

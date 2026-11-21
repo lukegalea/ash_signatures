@@ -125,7 +125,7 @@ defmodule AshSignatures.InPlatformTest do
       events = events(request.id)
 
       assert Enum.map(events, & &1.type) ==
-               [:viewed, :consented, :signed, :viewed, :consented, :signed]
+               [:notified, :viewed, :consented, :signed, :notified, :viewed, :consented, :signed]
 
       assert Enum.map(completion.record["events"], & &1["event_hash"]) ==
                Enum.map(events, & &1.event_hash)
@@ -203,8 +203,10 @@ defmodule AshSignatures.InPlatformTest do
       assert signer(clinician.id).status == :withdrawn
       assert_received {:provider, :void, _ref, :returned}
 
-      assert Enum.map(events(request.id), & &1.type) == [:viewed, :declined, :withdrawn]
-      assert Enum.at(events(request.id), 1).reason == "SYNTHETIC: the dosage is wrong"
+      assert Enum.map(events(request.id), & &1.type) ==
+               [:notified, :viewed, :declined, :withdrawn]
+
+      assert Enum.at(events(request.id), 2).reason == "SYNTHETIC: the dosage is wrong"
     end
 
     test "a change request returns the request too" do
@@ -247,6 +249,6 @@ defmodule AshSignatures.InPlatformTest do
     assert_received {:provider, :remind, _ref, id} when id == patient.id
 
     assert {:error, _} = Domain.remind(signer(clinician.id), authorize?: false)
-    assert Enum.map(events(request.id), & &1.type) == [:reminded]
+    assert Enum.map(events(request.id), & &1.type) == [:notified, :reminded]
   end
 end

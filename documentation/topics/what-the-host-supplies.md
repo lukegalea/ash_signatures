@@ -24,17 +24,22 @@ host.
 | Retention of document versions | the host's retention rules |
 | Audit | the host's base resource |
 | The audit chain head written into each completion | an `AshSignatures.ChainHead` named in `signature_request` |
+| How a signature is put into a document, if at all | an `AshSignatures.Stamp` named in `signature_request` |
+| Which typed fields (name, title, authority) a signature needs | a validation on the host's signer resource |
+| A signer's link delivery | the host's mailer calls the signer's `record_delivery` |
 
 ## Writes the package makes for an act
 
 An act a host authorizes has consequences the package writes itself, with the acting actor and tenant and
 `authorize?: false`:
 
-- a signer act records its event;
+- a signer act records its event, and a signer whose turn it becomes gets a `notified` event;
+- a signature is stamped into each document when the host supplies a stamp, and the stamped version becomes how the
+  document stands;
 - a signature moves the request to `partially_signed` (notifying the next signer) or `completed`;
 - a decline or change request moves the request to `returned`;
 - a request that ends withdraws the signers who had not acted, each with an event;
-- a completion writes the completion record and supersedes the subject's other open requests.
+- a completion makes each document's last stamped version its signed result, writes the completion record and supersedes the subject's other open requests.
 
 ## Field names
 

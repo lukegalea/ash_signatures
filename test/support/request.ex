@@ -5,7 +5,7 @@ defmodule AshSignatures.Test.Request do
   @moduledoc """
   The test host's request: the `AshSignatures.Request` fragment on a plain `Ash.Resource`
   over Postgres, with no tenancy or policies, a recording provider beside the two shipped
-  ones, and a chain head.
+  ones, a chain head and a stamp.
   """
 
   use Ash.Resource,
@@ -25,6 +25,7 @@ defmodule AshSignatures.Test.Request do
     completion(AshSignatures.Test.Completion)
     document_version(AshSignatures.Test.DocumentVersion)
     chain_head AshSignatures.Test.ChainHead
+    stamp(AshSignatures.Test.Stamp)
 
     providers in_platform: AshSignatures.Providers.InPlatform,
               upload: AshSignatures.Providers.Upload,

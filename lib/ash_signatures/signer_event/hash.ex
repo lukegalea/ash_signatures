@@ -21,6 +21,9 @@ defmodule AshSignatures.SignerEvent.Changes.Hash do
   use Ash.Resource.Change
 
   @fields [:request_id, :signer_id, :type, :route, :sha256, :ip_address, :user_agent, :reason]
+  # What a signer types when signing. Hashed only when present, so an event recorded before
+  # these fields existed keeps its hash.
+  @typed [:signed_name, :signed_title, :authority]
   @personal AshSignatures.payload_fields(:signer_event) -- [:salt]
 
   @impl true
@@ -37,6 +40,7 @@ defmodule AshSignatures.SignerEvent.Changes.Hash do
         |> Map.new(&{&1, Ash.Changeset.get_attribute(changeset, &1)})
         |> Map.merge(payload)
         |> Map.put(:occurred_at, occurred_at)
+        |> drop_absent_typed()
         |> with_salt(salt)
 
       changeset
@@ -86,10 +90,14 @@ defmodule AshSignatures.SignerEvent.Changes.Hash do
   @spec hash(Ash.Resource.record()) :: String.t()
   def hash(event) do
     event
-    |> Map.take([:occurred_at | @fields])
+    |> Map.take([:occurred_at | @fields ++ @typed])
+    |> drop_absent_typed()
     |> with_salt(Map.get(event, :salt))
     |> digest()
   end
+
+  defp drop_absent_typed(fields),
+    do: Map.reject(fields, fn {key, value} -> key in @typed and is_nil(value) end)
 
   defp digest(map), do: AshSignatures.Digest.sha256_hex(map)
 end

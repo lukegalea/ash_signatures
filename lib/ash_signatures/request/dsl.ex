@@ -66,6 +66,13 @@ defmodule AshSignatures.Request.Dsl do
         Reads the head of the host's audit chain for the request's tenant, which the completion
         record includes. Without it the record's `chain_head` is `nil`.
         """
+      ],
+      stamp: [
+        type: {:behaviour, AshSignatures.Stamp},
+        doc: """
+        Puts each in-platform signature into the documents as the signer signs. Without it the
+        documents stay as they were sent. See `AshSignatures.Stamp`.
+        """
       ]
     ]
   }

@@ -39,7 +39,9 @@ defmodule AshSignatures do
   """
   @spec payload_fields(:signer | :signer_event) :: [atom()]
   def payload_fields(:signer), do: [:name, :email]
-  def payload_fields(:signer_event), do: [:ip_address, :user_agent, :reason, :salt]
+
+  def payload_fields(:signer_event),
+    do: [:ip_address, :user_agent, :reason, :signed_name, :signed_title, :authority, :salt]
 
   @doc """
   The signer actions that are the signer's own acts: viewing, agreeing to sign
@@ -67,7 +69,7 @@ defmodule AshSignatures do
   @spec consequences(:request | :request_document | :signer | :signer_event | :completion) ::
           [atom()]
   def consequences(:request), do: [:advance, :return, :supersede]
-  def consequences(:request_document), do: [:record_result]
+  def consequences(:request_document), do: [:record_result, :record_progress]
   def consequences(:signer), do: [:notify, :withdraw]
   def consequences(:signer_event), do: [:record]
   def consequences(:completion), do: [:record]

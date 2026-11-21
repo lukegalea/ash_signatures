@@ -20,7 +20,7 @@ defmodule AshSignatures.Test.Fixtures do
     request =
       Domain.draft_request!(
         %{
-          subject_type: "visit",
+          subject_type: Keyword.get(opts, :subject_type, "visit"),
           subject_id: subject,
           purpose: Keyword.get(opts, :purpose, :acknowledge),
           expires_at: opts[:expires_at]
@@ -64,11 +64,14 @@ defmodule AshSignatures.Test.Fixtures do
 
   def signer(id), do: Domain.get_signer!(id, authorize?: false)
 
-  def sign_through(signer) do
+  def sign_through(signer, typed \\ %{}) do
     signer
     |> Domain.view!(%{ip_address: "192.0.2.10", user_agent: "SYNTHETIC-agent"}, authorize?: false)
     |> Domain.consent!(%{}, authorize?: false)
-    |> Domain.sign!(%{ip_address: "192.0.2.10", user_agent: "SYNTHETIC-agent"}, authorize?: false)
+    |> Domain.sign!(
+      Map.merge(%{ip_address: "192.0.2.10", user_agent: "SYNTHETIC-agent"}, typed),
+      authorize?: false
+    )
   end
 
   def events(request_id) do

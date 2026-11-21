@@ -15,7 +15,8 @@ erasure and every decision: who may send, the consent wording, how a signer is i
 retention.
 
 A signature here is a simple electronic signature: identity is whatever the host uses to let the signer reach their
-row. The package has no PDF stamping, cryptographic seals, timestamps or hosted e-signature providers.
+row. The package draws nothing into a PDF itself (a host's `AshSignatures.Stamp` does), and has no cryptographic
+seals, timestamps or hosted e-signature providers.
 
 ## What it ships
 
@@ -28,6 +29,7 @@ row. The package has no PDF stamping, cryptographic seals, timestamps or hosted 
 | `AshSignatures.Completion` | The canonical completion record and `record_hash` |
 | `AshSignatures.Provider` | The asynchronous provider behaviour: `create`, `lookup`, `observe`, `fetch`, `void`, `remind` |
 | `AshSignatures.Providers.InPlatform`, `AshSignatures.Providers.Upload` | Signing on the host's own surface, and signed paper copies uploaded. Neither makes a network call |
+| `AshSignatures.Stamp` | Optional: the host puts each in-platform signature into the documents, and the next signer is shown the stamped version |
 
 ## Installation
 

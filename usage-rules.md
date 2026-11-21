@@ -9,8 +9,10 @@ SPDX-License-Identifier: MIT
 
 Built: the request, request document, signer, signer event and completion fragments; their state machines; the
 provider behaviour with the in-platform and upload providers; first-copy completion with SHA-256 deduplication; the
-completion record. Not built, and not planned until a second use needs it: a signer principal for people without an
-account, PDF stamping, seals, timestamps, hosted providers.
+completion record; the stamp seam a host uses to put each in-platform signature into the documents; what a signer
+types when signing; the link events (`notified`, and `delivered` when the host reports it). Not built, and not planned
+until a second use needs it: a signer principal for people without an account, PDF stamping itself (the host's
+stamp does it), seals, timestamps, hosted providers.
 
 ## Understanding AshSignatures
 
@@ -40,6 +42,14 @@ account, PDF stamping, seals, timestamps, hosted providers.
    schedule anything.
 9. A new provider implements `AshSignatures.Provider` and is added to `providers`. `send` calls `lookup` before
    `create`, so a provider must answer `lookup` with the reference of a request it already holds.
-10. Consequences of an act (an event, the request moving on, the completion) are written with the acting actor and
+10. To change the documents as signers sign (a signature drawn into its field), name an `AshSignatures.Stamp` in
+    `signature_request`. It must store each stamped document as a new immutable version and return it; the next
+    signer is shown it, and the last one is the signed result in the completion record. Without one, the documents
+    stay as they were sent.
+11. Record a signer's link delivery with `record_delivery` when your mailer reports it. The package records
+    `notified` itself when it becomes a signer's turn.
+12. What a signer types (`signed_name`, `signed_title`, `authority`) is optional in the package. Require what your
+    signing needs with a validation on your own resource.
+13. Consequences of an act (an event, the request moving on, the completion) are written with the acting actor and
     tenant and `authorize?: false`. Your policies decide who may act. `AshSignatures.consequences/1` names those
     actions for each fragment: grant them to nobody, so no one can cause the bookkeeping without the act.

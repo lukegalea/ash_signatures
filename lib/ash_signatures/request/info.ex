@@ -37,5 +37,9 @@ defmodule AshSignatures.Request.Info do
   @spec chain_head(Ash.Resource.t()) :: module() | nil
   def chain_head(resource), do: opt(resource, :chain_head)
 
+  @doc "The host's `AshSignatures.Stamp`, or `nil`."
+  @spec stamp(Ash.Resource.t()) :: module() | nil
+  def stamp(resource), do: opt(resource, :stamp)
+
   defp opt(resource, name), do: Spark.Dsl.Extension.get_opt(resource, [:signature_request], name)
 end
