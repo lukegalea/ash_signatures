@@ -51,9 +51,12 @@ defmodule AshSignatures.Request do
 
   The first signed copy completes the request. A copy is a document version; its SHA-256 is
   read from the version. A copy whose bytes are an unsigned document, this request's or one
-  that another request on the same subject showed, is refused. A copy whose
-  SHA-256 was already received for the same subject, on any request, is recognised and
-  changes nothing. Any other copy is recorded as a `signed` event with route `:upload`; on an
+  that another request on the same subject showed, is refused. So is a version the host
+  stamped while a request on the subject was signed in the platform (`AshSignatures.Stamp`)
+  that carries only some of the signatures: one a later signer was shown, or how a document
+  stands on a request that has not completed. A copy whose SHA-256 was already received for
+  the same subject, on any request, or that is the stamped result of a request completed in
+  the platform, is recognised and changes nothing. Any other copy is recorded as a `signed` event with route `:upload`; on an
   open request it becomes that document's result, and once every document has a result the
   request completes. A copy that arrives after the request ended is recorded and completes
   nothing.

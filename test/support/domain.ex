@@ -41,7 +41,9 @@ defmodule AshSignatures.Test.Domain do
       define :decline, action: :decline, args: [:reason]
       define :request_changes, action: :request_changes, args: [:reason]
       define :remind, action: :remind
+      define :record_send, action: :record_send
       define :record_delivery, action: :record_delivery
+      define :record_bounce, action: :record_bounce
     end
 
     resource AshSignatures.Test.SignerEvent do

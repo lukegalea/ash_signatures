@@ -32,8 +32,10 @@ defmodule AshSignatures.Request.Changes.ReceiveSignedCopy do
          {:ok, document} <-
            target(documents, Ash.Changeset.get_argument(changeset, :request_document_id)),
          request_ids = subject_request_ids(resource, request, opts),
-         :ok <- signed?(resource, request_ids, sha256, opts) do
-      if duplicate?(resource, request_ids, sha256, opts) do
+         :ok <- signed?(resource, request_ids, sha256, opts),
+         :ok <- not_partly_signed?(resource, request_ids, sha256, opts) do
+      if duplicate?(resource, request_ids, sha256, opts) or
+           stamped_result?(resource, request_ids, sha256, opts) do
         changeset
       else
         Internal.record_event(
@@ -95,6 +97,48 @@ defmodule AshSignatures.Request.Changes.ReceiveSignedCopy do
       |> Ash.exists?()
 
     if unsigned?, do: {:error, "the copy is the unsigned document"}, else: :ok
+  end
+
+  # A version the host stamped while a request was being signed in the platform carries the
+  # signatures made so far, not every one asked for: one a later signer was shown (their
+  # `signed` event's hash is it, with one document), or how a document stands on a request
+  # that has not completed. It is not a signed copy, on this request or any other.
+  defp not_partly_signed?(resource, request_ids, sha256, opts) do
+    shown? =
+      resource
+      |> Info.signer_event()
+      |> Ash.Query.for_read(:read, %{}, opts)
+      |> Ash.Query.filter(
+        request_id in ^request_ids and type == :signed and route == :in_platform and
+          sha256 == ^sha256
+      )
+      |> Ash.exists?()
+
+    standing? =
+      resource
+      |> Info.request_document()
+      |> Ash.Query.for_read(:read, %{}, opts)
+      |> Ash.Query.filter(
+        request_id in ^request_ids and current_sha256 == ^sha256 and
+          (is_nil(result_sha256) or result_sha256 != ^sha256)
+      )
+      |> Ash.exists?()
+
+    if shown? or standing?,
+      do: {:error, "the copy is a partly signed version stamped in the platform"},
+      else: :ok
+  end
+
+  # The stamped result of a request completed in the platform is the signed document
+  # already: arriving again as a copy, it changes nothing.
+  defp stamped_result?(resource, request_ids, sha256, opts) do
+    resource
+    |> Info.request_document()
+    |> Ash.Query.for_read(:read, %{}, opts)
+    |> Ash.Query.filter(
+      request_id in ^request_ids and result_sha256 == ^sha256 and current_sha256 == ^sha256
+    )
+    |> Ash.exists?()
   end
 
   # A copy already received for the same subject, on any request, changes nothing.
