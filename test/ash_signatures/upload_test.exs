@@ -69,6 +69,26 @@ defmodule AshSignatures.UploadTest do
     assert Exception.message(error) =~ "unsigned"
   end
 
+  test "a copy whose bytes are an unsigned document another request on the subject showed is refused" do
+    subject = subject()
+    earlier = version("SYNTHETIC consent form, first draft")
+    %{request: _in_platform} = sent(subject: subject, version: earlier, provider: :recording)
+    %{request: paper} = sent(subject: subject, provider: :upload, roles: [:patient])
+
+    assert {:error, error} = Domain.receive_signed_copy(paper, earlier.id, authorize?: false)
+    assert Exception.message(error) =~ "unsigned"
+    assert Domain.get_request!(paper.id, authorize?: false).status == :sent
+    assert events(paper.id) == []
+  end
+
+  test "an unsigned document of another subject is no reason to refuse a copy" do
+    other = version("SYNTHETIC consent form of another visit")
+    _ = sent(version: other, provider: :recording)
+    %{request: paper} = sent(provider: :upload, roles: [:patient])
+
+    assert Domain.receive_signed_copy!(paper, other.id, authorize?: false).status == :completed
+  end
+
   test "a request with several documents completes when each has its copy" do
     %{request: request, signers: _} = draft(roles: [:patient])
 

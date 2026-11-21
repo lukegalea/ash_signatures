@@ -40,4 +40,35 @@ defmodule AshSignatures do
   @spec payload_fields(:signer | :signer_event) :: [atom()]
   def payload_fields(:signer), do: [:name, :email]
   def payload_fields(:signer_event), do: [:ip_address, :user_agent, :reason, :salt]
+
+  @doc """
+  The signer actions that are the signer's own acts: viewing, agreeing to sign
+  electronically, signing, declining and asking for changes.
+
+  Signing is a person's act (rule 4 of the usage rules). A host's policy on these actions
+  admits the person the signer row names and nobody else: no system actor, no automation
+  principal, no one acting for the person. Naming them here keeps every host's list the
+  same as the fragment's.
+  """
+  @spec person_acts() :: [atom()]
+  def person_acts, do: [:view, :consent, :sign, :decline, :request_changes]
+
+  @doc """
+  The actions of a fragment that the package calls itself, as the consequence of an act the
+  host authorized, with `authorize?: false` (rule 10 of the usage rules).
+
+  A host never needs a grant for them. Its policies can admit them for its own background
+  actors only, so that a person holding writes on the resource cannot, for example, move a
+  request on (`advance`) or record an event without the act that causes it.
+
+  `expire` and `receive_signed_copy` are not listed: the host calls them, from its own
+  trigger and its own upload.
+  """
+  @spec consequences(:request | :request_document | :signer | :signer_event | :completion) ::
+          [atom()]
+  def consequences(:request), do: [:advance, :return, :supersede]
+  def consequences(:request_document), do: [:record_result]
+  def consequences(:signer), do: [:notify, :withdraw]
+  def consequences(:signer_event), do: [:record]
+  def consequences(:completion), do: [:record]
 end

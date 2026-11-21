@@ -49,7 +49,8 @@ defmodule AshSignatures.Request do
   ## Signed copies
 
   The first signed copy completes the request. A copy is a document version; its SHA-256 is
-  read from the version. A copy whose bytes are the unsigned document is refused. A copy whose
+  read from the version. A copy whose bytes are an unsigned document, this request's or one
+  that another request on the same subject showed, is refused. A copy whose
   SHA-256 was already received for the same subject, on any request, is recognised and
   changes nothing. Any other copy is recorded as a `signed` event with route `:upload`; on an
   open request it becomes that document's result, and once every document has a result the
