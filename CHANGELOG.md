@@ -29,3 +29,7 @@ Requires Elixir 1.20 or later.
 - An event recorded with a personal field gets a random `salt` that its hash covers, listed in
   `AshSignatures.payload_fields(:signer_event)` so the host seals it with the fields. Once the host erases them, the
   hash no longer confirms a guess at them (an IPv4 address, a user agent, a short reason).
+- A signed copy whose bytes are an unsigned document that any request on the same subject showed is refused, not
+  only one equal to the receiving request's own document.
+- `AshSignatures.person_acts/0` and `AshSignatures.consequences/1` name the signer's own acts and each fragment's
+  package-written actions, so a host's policies are written from the fragments' own lists.

@@ -31,8 +31,9 @@ defmodule AshSignatures.Request.Changes.ReceiveSignedCopy do
     with {:ok, sha256} <- Internal.version_sha256(resource, version_id, opts),
          {:ok, document} <-
            target(documents, Ash.Changeset.get_argument(changeset, :request_document_id)),
-         :ok <- signed?(document, sha256) do
-      if duplicate?(resource, request, sha256, opts) do
+         request_ids = subject_request_ids(resource, request, opts),
+         :ok <- signed?(resource, request_ids, sha256, opts) do
+      if duplicate?(resource, request_ids, sha256, opts) do
         changeset
       else
         Internal.record_event(
@@ -71,23 +72,33 @@ defmodule AshSignatures.Request.Changes.ReceiveSignedCopy do
     end
   end
 
-  defp signed?(%{source_sha256: sha256}, sha256),
-    do: {:error, "the copy is the unsigned document"}
+  # Every request on the same subject, this one included.
+  defp subject_request_ids(resource, request, opts) do
+    resource
+    |> Ash.Query.for_read(:read, %{}, opts)
+    |> Ash.Query.filter(
+      subject_type == ^request.subject_type and subject_id == ^request.subject_id
+    )
+    |> Ash.Query.select([:id])
+    |> Ash.read!()
+    |> Enum.map(& &1.id)
+  end
 
-  defp signed?(_document, _sha256), do: :ok
+  # A copy whose bytes are a document any of the subject's requests showed unsigned is not a
+  # signed copy: an earlier draft of the subject is refused as much as this request's own.
+  defp signed?(resource, request_ids, sha256, opts) do
+    unsigned? =
+      resource
+      |> Info.request_document()
+      |> Ash.Query.for_read(:read, %{}, opts)
+      |> Ash.Query.filter(request_id in ^request_ids and source_sha256 == ^sha256)
+      |> Ash.exists?()
+
+    if unsigned?, do: {:error, "the copy is the unsigned document"}, else: :ok
+  end
 
   # A copy already received for the same subject, on any request, changes nothing.
-  defp duplicate?(resource, request, sha256, opts) do
-    request_ids =
-      resource
-      |> Ash.Query.for_read(:read, %{}, opts)
-      |> Ash.Query.filter(
-        subject_type == ^request.subject_type and subject_id == ^request.subject_id
-      )
-      |> Ash.Query.select([:id])
-      |> Ash.read!()
-      |> Enum.map(& &1.id)
-
+  defp duplicate?(resource, request_ids, sha256, opts) do
     resource
     |> Info.signer_event()
     |> Ash.Query.for_read(:read, %{}, opts)

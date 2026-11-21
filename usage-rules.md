@@ -26,7 +26,8 @@ account, PDF stamping, seals, timestamps, hosted providers.
    section of the request document and signer resources.
 3. The document version resource must be immutable and have a `sha256` attribute (lowercase hex of the bytes).
 4. Write policies on your own resources. The fragments contain none. Signing is a person's act: never let an
-   automation principal reach a signer's `sign` action.
+   automation principal reach a signer's `sign` action. `AshSignatures.person_acts/0` names the signer's own acts
+   (`view`, `consent`, `sign`, `decline`, `request_changes`); admit only the person a signer row names to them.
 5. Never add an update or destroy action to the signer event or completion resources. They are append-only.
 6. Seal the fields in `AshSignatures.payload_fields/1` under your erasure scope. Everything else (hashes, roles,
    order, event types, times, the completion record) is kept. Cloaking them with `AshCloak` works, and so does a
@@ -40,4 +41,5 @@ account, PDF stamping, seals, timestamps, hosted providers.
 9. A new provider implements `AshSignatures.Provider` and is added to `providers`. `send` calls `lookup` before
    `create`, so a provider must answer `lookup` with the reference of a request it already holds.
 10. Consequences of an act (an event, the request moving on, the completion) are written with the acting actor and
-    tenant and `authorize?: false`. Your policies decide who may act.
+    tenant and `authorize?: false`. Your policies decide who may act. `AshSignatures.consequences/1` names those
+    actions for each fragment: grant them to nobody, so no one can cause the bookkeeping without the act.
