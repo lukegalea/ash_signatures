@@ -46,7 +46,9 @@ stamp does it), seals, timestamps, hosted providers.
     `signature_request`. It must store each stamped document as a new immutable version and return it; the next
     signer is shown it, and the last one is the signed result in the completion record. Without one, the documents
     stay as they were sent.
-11. Record a signer's link delivery with `record_delivery` when your mailer reports it. The package records
+11. Record what your mailer reports about a signer's link: `record_send` when it accepted the link for sending,
+    `record_delivery` when it reports it delivered, `record_bounce` when it reports it could not be delivered. Record
+    `sent` only for a send the mailer accepted, never for one it refused or failed. The package records
     `notified` itself when it becomes a signer's turn: that the turn came, not that anything was sent. A provider
     that tells no one (`notifies_signers?/0` false, as `Providers.Upload`) records no `notified` at all.
 12. What a signer types (`signed_name`, `signed_title`, `authority`) is optional in the package. Require what your

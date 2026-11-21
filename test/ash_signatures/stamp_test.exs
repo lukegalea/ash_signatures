@@ -54,14 +54,76 @@ defmodule AshSignatures.StampTest do
       assert %{signed_name: nil} = Enum.find(events(request.id), &(&1.type == :signed))
     end
 
-    test "a delivery is recorded only while it is the signer's turn" do
-      %{signers: [patient, clinician]} = sent()
+    test "a send, a delivery or a bounce is recorded only while it is the signer's turn" do
+      %{request: request, signers: [patient, clinician]} = sent()
 
-      assert {:error, error} = Domain.record_delivery(signer(clinician.id), authorize?: false)
-      assert Exception.message(error) =~ "turn"
+      for record <- [&Domain.record_send/2, &Domain.record_delivery/2, &Domain.record_bounce/2] do
+        assert {:error, error} = record.(signer(clinician.id), authorize?: false)
+        assert Exception.message(error) =~ "turn"
+      end
 
       sign_through(signer(patient.id))
-      assert {:error, _} = Domain.record_delivery(signer(patient.id), authorize?: false)
+
+      for record <- [&Domain.record_send/2, &Domain.record_delivery/2, &Domain.record_bounce/2] do
+        assert {:error, _} = record.(signer(patient.id), authorize?: false)
+      end
+
+      refute Enum.any?(events(request.id), &(&1.type in [:sent, :delivered, :bounced]))
+    end
+
+    test "a version stamped part way through is not a signed copy, on any request on the subject" do
+      subject = subject()
+
+      %{request: request, signers: [patient, clinician]} =
+        sent(subject: subject, subject_type: "stamped-visit")
+
+      sign_through(signer(patient.id), @typed)
+      [%{current_version_id: partly}] = documents(request.id)
+
+      %{request: paper} =
+        sent(
+          subject: subject,
+          subject_type: "stamped-visit",
+          provider: :upload,
+          roles: [:patient]
+        )
+
+      for target <- [paper, request] do
+        assert {:error, error} =
+                 Domain.receive_signed_copy(
+                   Domain.get_request!(target.id, authorize?: false),
+                   partly,
+                   authorize?: false
+                 )
+
+        assert Exception.message(error) =~ "partly signed"
+      end
+
+      assert Domain.get_request!(paper.id, authorize?: false).status == :sent
+      assert events(paper.id) == []
+
+      # Completed, the version the second signer was shown is still only partly signed.
+      sign_through(signer(clinician.id), @typed)
+      completed = Domain.get_request!(request.id, authorize?: false)
+      assert completed.status == :completed
+
+      assert {:error, error} = Domain.receive_signed_copy(completed, partly, authorize?: false)
+      assert Exception.message(error) =~ "partly signed"
+    end
+
+    test "a completed request's stamped result arriving as a copy changes nothing" do
+      %{request: request, signers: [patient, clinician]} = sent(subject_type: "stamped-visit")
+      sign_through(signer(patient.id), @typed)
+      sign_through(signer(clinician.id), @typed)
+
+      [%{result_version_id: result}] = documents(request.id)
+      before = events(request.id)
+      completed = Domain.get_request!(request.id, authorize?: false)
+
+      assert %{status: :completed} =
+               Domain.receive_signed_copy!(completed, result, authorize?: false)
+
+      assert events(request.id) == before
     end
   end
 
@@ -146,10 +208,12 @@ defmodule AshSignatures.StampTest do
   end
 
   describe "the link events" do
-    test "the signer whose turn it is gets a notified event, and a reported delivery is recorded" do
+    test "the signer whose turn it is gets a notified event, and a reported send and delivery are recorded" do
       %{request: request, signers: [patient, clinician]} = sent()
       assert Enum.map(events(request.id), & &1.type) == [:notified]
 
+      sent = Domain.record_send!(signer(patient.id), authorize?: false)
+      assert sent.status == :notified
       delivered = Domain.record_delivery!(signer(patient.id), authorize?: false)
       assert delivered.status == :notified
 
@@ -157,6 +221,7 @@ defmodule AshSignatures.StampTest do
 
       assert Enum.map(events(request.id), &{&1.type, &1.signer_id, &1.route}) == [
                {:notified, patient.id, nil},
+               {:sent, patient.id, nil},
                {:delivered, patient.id, nil},
                {:viewed, patient.id, :in_platform},
                {:consented, patient.id, :in_platform},
@@ -164,7 +229,7 @@ defmodule AshSignatures.StampTest do
                {:notified, clinician.id, nil}
              ]
 
-      for event <- events(request.id), event.type in [:notified, :delivered] do
+      for event <- events(request.id), event.type in [:notified, :sent, :delivered] do
         assert event.salt == nil and event.ip_address == nil
         assert event.event_hash == Hash.hash(event)
       end

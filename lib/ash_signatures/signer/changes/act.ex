@@ -22,7 +22,9 @@ defmodule AshSignatures.Signer.Changes.Act do
 
   @types [
     :notified,
+    :sent,
     :delivered,
+    :bounced,
     :viewed,
     :consented,
     :signed,
@@ -80,11 +82,12 @@ defmodule AshSignatures.Signer.Changes.Act do
   defp transition(changeset, :reminded, _signer),
     do: invalid(changeset, "only the signer whose turn it is can be reminded")
 
-  defp transition(changeset, :delivered, %{status: status}) when status in [:notified, :viewed],
-    do: changeset
+  defp transition(changeset, type, %{status: status})
+       when type in [:sent, :delivered, :bounced] and status in [:notified, :viewed],
+       do: changeset
 
-  defp transition(changeset, :delivered, _signer),
-    do: invalid(changeset, "only the signer whose turn it is has a link to deliver")
+  defp transition(changeset, type, _signer) when type in [:sent, :delivered, :bounced],
+    do: invalid(changeset, "only the signer whose turn it is has a link to send or deliver")
 
   defp transition(changeset, type, _signer)
        when type in [:declined, :changes_requested, :withdrawn],

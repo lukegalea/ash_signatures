@@ -46,8 +46,10 @@ defmodule AshSignatures.Signer do
       request completes.
     * `decline`, `request_changes`: need a `reason`. The request is `returned`.
     * `remind`: records `reminded` and calls the provider's `remind`. No state change.
-    * `record_delivery`: records `delivered`, when the host's mailer reports the signer's
-      link delivered. No state change; only while it is the signer's turn.
+    * `record_send`: records `sent`, when the host's mailer accepted the signer's link for
+      sending. `record_delivery`: records `delivered`, when it reports the link delivered.
+      `record_bounce`: records `bounced`, when it reports the link could not be delivered.
+      No state change; only while it is the signer's turn.
     * `notify`, `withdraw`, `sign_on_copy`: the package's own writes. `notify` records
       `notified`. `sign_on_copy` records the signer's `signed` event, route `:upload`, with the
       SHA-256 of the signed copy that completed the request.
@@ -134,9 +136,19 @@ defmodule AshSignatures.Signer do
       change {AshSignatures.Signer.Changes.Act, type: :reminded}
     end
 
+    update :record_send do
+      require_atomic? false
+      change {AshSignatures.Signer.Changes.Act, type: :sent}
+    end
+
     update :record_delivery do
       require_atomic? false
       change {AshSignatures.Signer.Changes.Act, type: :delivered}
+    end
+
+    update :record_bounce do
+      require_atomic? false
+      change {AshSignatures.Signer.Changes.Act, type: :bounced}
     end
 
     update :withdraw do

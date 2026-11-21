@@ -8,12 +8,13 @@ defmodule AshSignatures.SignerEvent do
 
       use MyApp.Resource, fragments: [AshSignatures.SignerEvent]
 
-  `type` is `notified` (it became the signer's turn: the host sends the link),
-  `delivered` (the host's mailer reported the link delivered), `viewed`, `consented`,
-  `signed`, `declined`, `changes_requested`, `reminded` or `withdrawn`. `route` is how a
-  person acted: `:in_platform` on the host's surface, or `:upload` for a signed copy that
-  arrived as a document version; it is `nil` for events no person caused (`notified`,
-  `delivered`, `reminded`, `withdrawn`). `signer_id` is `nil` for an uploaded copy,
+  `type` is `notified` (it became the signer's turn: the host sends the link), `sent` (the
+  host's mailer accepted the link for sending), `delivered` (it reported the link
+  delivered), `bounced` (it reported the link could not be delivered), `viewed`,
+  `consented`, `signed`, `declined`, `changes_requested`, `reminded` or `withdrawn`.
+  `route` is how a person acted: `:in_platform` on the host's surface, or `:upload` for a
+  signed copy that arrived as a document version; it is `nil` for events no person caused
+  (`notified`, `sent`, `delivered`, `bounced`, `reminded`, `withdrawn`). `signer_id` is `nil` for an uploaded copy,
   which is the request's rather than one signer's.
 
   `sha256` is, for an in-platform signature, the hash of what the signer was shown
@@ -43,7 +44,9 @@ defmodule AshSignatures.SignerEvent do
 
   @types [
     :notified,
+    :sent,
     :delivered,
+    :bounced,
     :viewed,
     :consented,
     :signed,

@@ -46,5 +46,11 @@ Requires Elixir 1.20 or later.
 - A signed copy that completes a request signs each signer who had not acted on it (`sign_on_copy`: a `signed` event
   with route `:upload` and the copy's SHA-256) instead of withdrawing them, so the completion record of a request
   signed on paper names its signers as signed.
+- `record_send` and `record_bounce` record `sent` (the host's mailer accepted the signer's link for sending) and
+  `bounced` (it reported the link could not be delivered), beside `record_delivery`, only while it is the signer's
+  turn.
+- A signed copy that is a version the host stamped part way through signing in the platform (one a later signer was
+  shown, or how a document stands on a request that has not completed) is refused, on any request on the subject. A
+  completed request's stamped result arriving as a copy changes nothing.
 - A provider may say it tells no signer it is their turn (`notifies_signers?/0`, optional). `Providers.Upload` says
   so, and a paper request records no `notified` event.
