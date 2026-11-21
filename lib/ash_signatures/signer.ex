@@ -34,12 +34,19 @@ defmodule AshSignatures.Signer do
     * `view`: the signer opened the documents.
     * `consent`: the signer agreed to sign electronically. Needs `viewed`. The consent
       wording is the host's.
-    * `sign`: needs `viewed` and consent. Records the SHA-256 of what the signer was shown
-      (`AshSignatures.Digest.shown/1` over the documents' source hashes) and moves the request
-      on: the next signer is notified, or the request completes.
+    * `sign`: needs `viewed` and consent. Takes what the signer typed, all optional here
+      (a host requires what it needs): `signed_name`, `signed_title` and `authority`, the
+      statement that they may sign; they go on the `signed` event, sealed with its other
+      personal fields. Records the SHA-256 of what the signer was shown
+      (`AshSignatures.Digest.shown/1` over each document as it stands: the source, or its
+      last stamped version), stamps the signature into the documents when the host supplies
+      an `AshSignatures.Stamp`, and moves the request on: the next signer is notified, or the
+      request completes.
     * `decline`, `request_changes`: need a `reason`. The request is `returned`.
     * `remind`: records `reminded` and calls the provider's `remind`. No state change.
-    * `notify`, `withdraw`: the package's own writes.
+    * `record_delivery`: records `delivered`, when the host's mailer reports the signer's
+      link delivered. No state change; only while it is the signer's turn.
+    * `notify`, `withdraw`: the package's own writes. `notify` records `notified`.
 
   The host's policies decide who may take each act. Signing is a person's act: a host must
   not let an automation principal reach `sign`.
@@ -95,6 +102,9 @@ defmodule AshSignatures.Signer do
       require_atomic? false
       argument :ip_address, :string, sensitive?: true
       argument :user_agent, :string, sensitive?: true
+      argument :signed_name, :string, sensitive?: true, constraints: [min_length: 1]
+      argument :signed_title, :string, sensitive?: true, constraints: [min_length: 1]
+      argument :authority, :string, sensitive?: true, constraints: [min_length: 1]
       change {AshSignatures.Signer.Changes.Act, type: :signed}
     end
 
@@ -117,6 +127,11 @@ defmodule AshSignatures.Signer do
     update :remind do
       require_atomic? false
       change {AshSignatures.Signer.Changes.Act, type: :reminded}
+    end
+
+    update :record_delivery do
+      require_atomic? false
+      change {AshSignatures.Signer.Changes.Act, type: :delivered}
     end
 
     update :withdraw do

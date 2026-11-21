@@ -5,7 +5,8 @@ defmodule AshSignatures.Signer.Changes.Act do
   @moduledoc """
   One act on a signer's own row (`type:` the event it records): moves the signer's state,
   records the event and, for `signed`, `declined` and `changes_requested`, moves the request
-  on. Fenced on the signer's status not having changed since it was read.
+  on. A signature is stamped into the documents first when the host supplies an
+  `AshSignatures.Stamp`. Fenced on the signer's status not having changed since it was read.
   """
 
   use Ash.Resource.Change
@@ -17,6 +18,7 @@ defmodule AshSignatures.Signer.Changes.Act do
 
   @types [
     :notified,
+    :delivered,
     :viewed,
     :consented,
     :signed,
@@ -70,18 +72,36 @@ defmodule AshSignatures.Signer.Changes.Act do
   defp transition(changeset, :reminded, _signer),
     do: invalid(changeset, "only the signer whose turn it is can be reminded")
 
+  defp transition(changeset, :delivered, %{status: status}) when status in [:notified, :viewed],
+    do: changeset
+
+  defp transition(changeset, :delivered, _signer),
+    do: invalid(changeset, "only the signer whose turn it is has a link to deliver")
+
   defp transition(changeset, type, _signer)
        when type in [:declined, :changes_requested, :withdrawn],
        do: changeset |> AshStateMachine.transition_state(type) |> stamp(:ended_at)
 
-  # The request is read once, before the write: an act on a request that has passed its
-  # `expires_at` is refused, and a signature records the hash of what was shown.
+  # The request is read once, before the write: an act on a request that cannot be read
+  # here (another tenant's, say) or has passed its `expires_at` is refused, and a signature
+  # records the hash of what was shown: each document as it stands.
   defp check_request(changeset, type, context)
        when type in [:viewed, :consented, :signed, :declined, :changes_requested] do
     opts = Internal.opts(changeset, context)
     request_resource = AshSignatures.Member.Dsl.request(changeset.resource)
-    request = Internal.get_request!(request_resource, changeset.data.request_id, opts)
 
+    case Internal.get_request(request_resource, changeset.data.request_id, opts) do
+      nil ->
+        invalid(changeset, "the signer's request was not found")
+
+      request ->
+        check_open_request(changeset, type, request_resource, request, opts)
+    end
+  end
+
+  defp check_request(changeset, _type, _context), do: changeset
+
+  defp check_open_request(changeset, type, request_resource, request, opts) do
     cond do
       request.expires_at && DateTime.compare(Internal.now(), request.expires_at) != :lt ->
         invalid(changeset, "the request expired at #{DateTime.to_iso8601(request.expires_at)}")
@@ -90,7 +110,7 @@ defmodule AshSignatures.Signer.Changes.Act do
         shown =
           request_resource
           |> Internal.documents(request.id, opts)
-          |> Enum.map(& &1.source_sha256)
+          |> Enum.map(&(&1.current_sha256 || &1.source_sha256))
           |> Digest.shown()
 
         Ash.Changeset.force_change_attribute(changeset, :shown_sha256, shown)
@@ -100,19 +120,17 @@ defmodule AshSignatures.Signer.Changes.Act do
     end
   end
 
-  defp check_request(changeset, _type, _context), do: changeset
-
   defp follow(changeset, signer, type, context) do
     opts = Internal.opts(changeset, context)
     request_resource = AshSignatures.Member.Dsl.request(changeset.resource)
 
-    if type != :notified do
-      Internal.record_event(request_resource, event(changeset, signer, type), opts)
-    end
+    Internal.record_event(request_resource, event(changeset, signer, type), opts)
 
     case type do
       :signed ->
-        move_request(request_resource, signer, :advance, opts)
+        with :ok <- stamp(request_resource, changeset, signer, opts) do
+          move_request(request_resource, signer, :advance, opts)
+        end
 
       type when type in [:declined, :changes_requested] ->
         move_request(request_resource, signer, :return, opts)
@@ -137,8 +155,68 @@ defmodule AshSignatures.Signer.Changes.Act do
       sha256: if(type == :signed, do: signer.shown_sha256),
       ip_address: argument(changeset, :ip_address),
       user_agent: argument(changeset, :user_agent),
-      reason: argument(changeset, :reason)
+      reason: argument(changeset, :reason),
+      signed_name: argument(changeset, :signed_name),
+      signed_title: argument(changeset, :signed_title),
+      authority: argument(changeset, :authority)
     }
+  end
+
+  # Each document as it stands gets the signature, and the stamped version becomes how it
+  # stands. Nothing to do without a host `AshSignatures.Stamp`.
+  defp stamp(request_resource, changeset, signer, opts) do
+    case Info.stamp(request_resource) do
+      nil -> :ok
+      module -> stamp_documents(module, request_resource, changeset, signer, opts)
+    end
+  end
+
+  defp stamp_documents(module, request_resource, changeset, signer, opts) do
+    request = Internal.get_request!(request_resource, signer.request_id, opts)
+
+    signature = %{
+      signed_name: argument(changeset, :signed_name),
+      signed_title: argument(changeset, :signed_title),
+      authority: argument(changeset, :authority),
+      signed_at: signer.signed_at
+    }
+
+    request_resource
+    |> Internal.documents(request.id, opts)
+    |> Enum.reduce_while(:ok, fn document, :ok ->
+      input = %{
+        document: document,
+        version_id: document.current_version_id || document.source_version_id,
+        signer: signer,
+        signature: signature,
+        request: request,
+        actor: opts[:actor],
+        tenant: opts[:tenant]
+      }
+
+      case module.stamp(input) do
+        {:ok, %{version_id: version_id, sha256: sha256}} ->
+          document
+          |> Ash.Changeset.for_update(
+            :record_progress,
+            %{current_version_id: version_id, current_sha256: sha256},
+            opts
+          )
+          |> Ash.update!()
+
+          {:cont, :ok}
+
+        :unchanged ->
+          {:cont, :ok}
+
+        {:error, reason} ->
+          {:halt,
+           {:error,
+            Ash.Error.Changes.InvalidChanges.exception(
+              message: "the signature could not be stamped: #{inspect(reason)}"
+            )}}
+      end
+    end)
   end
 
   defp argument(changeset, name) do

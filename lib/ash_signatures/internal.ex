@@ -26,14 +26,18 @@ defmodule AshSignatures.Internal do
   end
 
   def get_request!(request_resource, id, opts) do
+    case get_request(request_resource, id, opts) do
+      nil -> raise Ash.Error.Query.NotFound, primary_key: %{id: id}, resource: request_resource
+      request -> request
+    end
+  end
+
+  # The request, or nil when it cannot be read with these options (another tenant's).
+  def get_request(request_resource, id, opts) do
     request_resource
     |> Ash.Query.for_read(:read, %{}, opts)
     |> Ash.Query.filter(id == ^id)
     |> Ash.read_one!()
-    |> case do
-      nil -> raise Ash.Error.Query.NotFound, primary_key: %{id: id}, resource: request_resource
-      request -> request
-    end
   end
 
   def documents(request_resource, request_id, opts) do

@@ -33,3 +33,13 @@ Requires Elixir 1.20 or later.
   only one equal to the receiving request's own document.
 - `AshSignatures.person_acts/0` and `AshSignatures.consequences/1` name the signer's own acts and each fragment's
   package-written actions, so a host's policies are written from the fragments' own lists.
+- `AshSignatures.Stamp`: a host may put each in-platform signature into the documents as the signer signs. The stamped
+  version is how the document stands (`current_version_id`, `current_sha256`): the next signer is shown it and signs
+  over its hash, and the last one becomes the signed result in the completion record. A stamp that fails fails the
+  signature.
+- `sign` takes what the signer typed: `signed_name`, `signed_title` and `authority`. They go on the `signed` event,
+  are covered by its hash and are listed in `AshSignatures.payload_fields(:signer_event)` for the host to seal. An
+  event without them hashes as it did before they existed.
+- The signer whose turn it becomes gets a `notified` event, and `record_delivery` records `delivered` when the host's
+  mailer reports the link delivered.
+- A signer act on a request it cannot read (another tenant's) is refused with an error instead of raising.

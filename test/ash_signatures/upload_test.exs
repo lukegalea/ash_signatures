@@ -22,8 +22,10 @@ defmodule AshSignatures.UploadTest do
     assert document.source_sha256 == source.sha256
     assert {document.result_version_id, document.result_sha256} == {copy.id, copy.sha256}
 
-    assert [%{type: :signed, route: :upload, signer_id: nil, sha256: sha256} | withdrawn] =
-             events(request.id)
+    assert [
+             %{type: :notified, route: nil},
+             %{type: :signed, route: :upload, signer_id: nil, sha256: sha256} | withdrawn
+           ] = events(request.id)
 
     assert sha256 == copy.sha256
     assert Enum.all?(withdrawn, &(&1.type == :withdrawn))
@@ -78,7 +80,7 @@ defmodule AshSignatures.UploadTest do
     assert {:error, error} = Domain.receive_signed_copy(paper, earlier.id, authorize?: false)
     assert Exception.message(error) =~ "unsigned"
     assert Domain.get_request!(paper.id, authorize?: false).status == :sent
-    assert events(paper.id) == []
+    assert Enum.map(events(paper.id), & &1.type) == [:notified]
   end
 
   test "an unsigned document of another subject is no reason to refuse a copy" do
@@ -143,6 +145,6 @@ defmodule AshSignatures.UploadTest do
     second = Domain.receive_signed_copy!(second, copy.id, authorize?: false)
 
     assert second.status == :sent
-    assert events(second.id) == []
+    assert Enum.map(events(second.id), & &1.type) == [:notified]
   end
 end

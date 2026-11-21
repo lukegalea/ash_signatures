@@ -4,7 +4,9 @@
 defmodule AshSignatures.Request.Changes.Advance do
   @moduledoc """
   Moves a request on after a signer signs: `completed` when every signer has signed,
-  otherwise `partially_signed` with the next signer notified.
+  otherwise `partially_signed` with the next signer notified. On completion, each document's
+  last stamped version (`AshSignatures.Stamp`) becomes its signed result before the
+  completion record is written.
 
   The update is fenced on the request still being open, so a request that ended meanwhile is
   not moved.
@@ -39,7 +41,9 @@ defmodule AshSignatures.Request.Changes.Advance do
   end
 
   defp follow(changeset, %{status: :completed} = request, context) do
-    Complete.run(changeset.resource, request, Internal.opts(changeset, context))
+    opts = Internal.opts(changeset, context)
+    promote_stamped(changeset.resource, request, opts)
+    Complete.run(changeset.resource, request, opts)
     {:ok, request}
   end
 
@@ -55,5 +59,20 @@ defmodule AshSignatures.Request.Changes.Advance do
     end
 
     {:ok, request}
+  end
+
+  defp promote_stamped(resource, request, opts) do
+    for document <- Internal.documents(resource, request.id, opts),
+        is_nil(document.result_version_id) and not is_nil(document.current_version_id) do
+      document
+      |> Ash.Changeset.for_update(
+        :record_result,
+        %{result_version_id: document.current_version_id, result_sha256: document.current_sha256},
+        opts
+      )
+      |> Ash.update!()
+    end
+
+    :ok
   end
 end

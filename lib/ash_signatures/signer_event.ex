@@ -8,10 +8,12 @@ defmodule AshSignatures.SignerEvent do
 
       use MyApp.Resource, fragments: [AshSignatures.SignerEvent]
 
-  `type` is `viewed`, `consented`, `signed`, `declined`, `changes_requested`, `reminded` or
-  `withdrawn`. `route` is how a person acted: `:in_platform` on the host's surface, or
-  `:upload` for a signed copy that arrived as a document version; it is `nil` for the
-  package's own events (`reminded`, `withdrawn`). `signer_id` is `nil` for an uploaded copy,
+  `type` is `notified` (it became the signer's turn: the host sends the link),
+  `delivered` (the host's mailer reported the link delivered), `viewed`, `consented`,
+  `signed`, `declined`, `changes_requested`, `reminded` or `withdrawn`. `route` is how a
+  person acted: `:in_platform` on the host's surface, or `:upload` for a signed copy that
+  arrived as a document version; it is `nil` for events no person caused (`notified`,
+  `delivered`, `reminded`, `withdrawn`). `signer_id` is `nil` for an uploaded copy,
   which is the request's rather than one signer's.
 
   `sha256` is, for an in-platform signature, the hash of what the signer was shown
@@ -19,8 +21,12 @@ defmodule AshSignatures.SignerEvent do
 
   `event_hash` is the SHA-256 of the event's canonical JSON, personal fields included, taken
   when it is recorded. The completion record lists every event's hash, so the hash outlives
-  the fields once the host seals them. `ip_address`, `user_agent` and `reason` are
-  `sensitive?` and listed in `AshSignatures.payload_fields(:signer_event)`.
+  the fields once the host seals them. `ip_address`, `user_agent` and `reason`, and on a
+  signature what the signer typed (`signed_name`, `signed_title` and `authority`, the
+  statement that they may sign), are `sensitive?` and listed in
+  `AshSignatures.payload_fields(:signer_event)`. The three typed fields are left out of the
+  hashed JSON when they are `nil`, so the hash of an event recorded before they existed is
+  unchanged.
 
   ## The salt
 
@@ -35,13 +41,35 @@ defmodule AshSignatures.SignerEvent do
 
   use Spark.Dsl.Fragment, of: Ash.Resource
 
-  @types [:viewed, :consented, :signed, :declined, :changes_requested, :reminded, :withdrawn]
+  @types [
+    :notified,
+    :delivered,
+    :viewed,
+    :consented,
+    :signed,
+    :declined,
+    :changes_requested,
+    :reminded,
+    :withdrawn
+  ]
 
   actions do
     defaults [:read]
 
     create :record do
-      accept [:request_id, :signer_id, :type, :route, :sha256, :ip_address, :user_agent, :reason]
+      accept [
+        :request_id,
+        :signer_id,
+        :type,
+        :route,
+        :sha256,
+        :ip_address,
+        :user_agent,
+        :reason,
+        :signed_name,
+        :signed_title,
+        :authority
+      ]
 
       # Where the salt goes on a host that seals it, whose `salt` is then no attribute
       # (`AshCloak` swaps it for an encrypted one). Private: never taken as input.
@@ -68,6 +96,9 @@ defmodule AshSignatures.SignerEvent do
     attribute :ip_address, :string, public?: true, sensitive?: true
     attribute :user_agent, :string, public?: true, sensitive?: true
     attribute :reason, :string, public?: true, sensitive?: true
+    attribute :signed_name, :string, public?: true, sensitive?: true
+    attribute :signed_title, :string, public?: true, sensitive?: true
+    attribute :authority, :string, public?: true, sensitive?: true
 
     # Written by `AshSignatures.SignerEvent.Changes.Hash`, never accepted as input.
     attribute :salt, :string, public?: true, sensitive?: true
